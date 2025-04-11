@@ -47,7 +47,7 @@
   const code = new URLSearchParams(location.search).get('code') || localStorage.getItem('pairCode');
   document.getElementById('codeLabel').textContent = code;
 
-  const qrUrl = `https://got-the-point.up.railway.app/controller.html?code=${code}`;
+  const qrUrl = `https://got-the-point.up.railway.app/name.html?code=${code}`;
   QRCode.toDataURL(qrUrl).then(url => {
     document.getElementById('qrcode').src = url;
   });
