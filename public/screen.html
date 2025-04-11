@@ -48,7 +48,7 @@
   document.getElementById('codeLabel').textContent = code;
 
   const ip = localStorage.getItem('pairIP') || location.hostname;
-  const qrUrl = `https://${ip}:3000/controller.html?code=${code}`;
+  const qrUrl = `https://${ip}/controller.html?code=${code}`;
   QRCode.toDataURL(qrUrl).then(url => {
     document.getElementById('qrcode').src = url;
   });
