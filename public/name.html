@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>輸入你的名字</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      background: #111; color: white; font-family: sans-serif;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100vh; margin: 0;
+    }
+    input {
+      font-size: 20px; padding: 10px; margin-bottom: 20px; border-radius: 8px; border: none;
+      width: 60%;
+      text-align: center;
+    }
+    button {
+      font-size: 20px; padding: 10px 20px; border-radius: 8px; border: none;
+      background: #33c; color: white;
+    }
+  </style>
+</head>
+<body>
+  <h2>請輸入你的名字</h2>
+  <input type="text" id="playerName" placeholder="你的名字">
+  <button onclick="startGame()">開始遊戲</button>
+
+  <script>
+    function startGame() {
+      const name = document.getElementById('playerName').value.trim();
+      if (!name) {
+        alert('請輸入名字');
+        return;
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code') || localStorage.getItem('pairCode');
+      const id = Math.random().toString(36).substring(2, 8);
+
+      // 將 id 與 name 存入 localStorage（controller 也能用）
+      localStorage.setItem('playerId', id);
+      localStorage.setItem('playerName', name);
+
+      // 導向控制器畫面
+      window.location.href = `controller.html?code=${code}&id=${id}&name=${encodeURIComponent(name)}`;
+    }
+  </script>
+</body>
+</html>

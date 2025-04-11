@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>2D 遊戲畫面</title>
+  <style>
+    body { margin: 0; background: #000; overflow: hidden; }
+    .player {
+      width: 40px; height: 40px; position: absolute; border-radius: 8px;
+      transition: left 0.1s linear, top 0.1s linear;
+    }
+    .name {
+      position: absolute; color: white; font-size: 14px;
+      transform: translate(-50%, -150%);
+      white-space: nowrap;
+    }
+    .point {
+      width: 20px; height: 20px; background: gold;
+      position: absolute; border-radius: 50%;
+    }
+    #scoreboard {
+      position: absolute; top: 10px; left: 10px; color: white;
+      background: rgba(0,0,0,0.6); padding: 12px 16px;
+      border-radius: 8px; font-family: sans-serif;
+      border: 2px solid #888; box-shadow: 0 0 10px #000;
+      min-width: 160px;
+    }
+    #muteToggle {
+      position: absolute; top: 10px; right: 150px; font-size: 16px;
+      background: rgba(255,255,255,0.1); color: white; padding: 5px 10px;
+      border: none; border-radius: 6px;
+    }
+    #qrcode {
+      position: absolute; top: 10px; right: 10px;
+      width: 120px; opacity: 0.7; z-index: 10;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+<div id="scoreboard">配對碼：<span id="codeLabel">---</span></div>
+<button id="muteToggle">靜音</button>
+<img id="qrcode" />
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+<script>
+  const code = new URLSearchParams(location.search).get('code') || localStorage.getItem('pairCode');
+  document.getElementById('codeLabel').textContent = code;
+
+  const ip = localStorage.getItem('pairIP') || location.hostname;
+  const qrUrl = `https://${ip}:3000/controller.html?code=${code}`;
+  QRCode.toDataURL(qrUrl).then(url => {
+    document.getElementById('qrcode').src = url;
+  });
+
+  const socket = new WebSocket('wss://' + location.host);
+  const players = {};
+  const colors = ['red', 'lime', 'cyan', 'yellow', 'magenta'];
+  const points = [];
+  const step = 10;
+
+  const audio = {
+    bgm: new Audio('sound/bgm.mp3'),
+    join: new Audio('sound/join.mp3'),
+    score: new Audio('sound/score.mp3')
+  };
+  audio.bgm.loop = true;
+  audio.bgm.volume = 0.3;
+  let isMuted = false;
+
+  document.getElementById('muteToggle').onclick = () => {
+    isMuted = !isMuted;
+    for (let key in audio) audio[key].muted = isMuted;
+    document.getElementById('muteToggle').textContent = isMuted ? '取消靜音' : '靜音';
+  };
+
+  window.addEventListener('click', () => {
+    if (!audio.bgm.paused) return;
+    audio.bgm.play().catch(() => {});
+  }, { once: true });
+
+  socket.onopen = () => {
+    socket.send(JSON.stringify({ type: 'register', role: 'screen', code }));
+  };
+
+  socket.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    if (msg.type === 'control') {
+      const { id, name, direction } = msg;
+      if (!players[id]) {
+        addPlayer(id, name);
+        audio.join.play();
+      }
+
+      const p = players[id];
+      switch (direction) {
+        case 'up': p.y -= step; break;
+        case 'down': p.y += step; break;
+        case 'left': p.x -= step; break;
+        case 'right': p.x += step; break;
+      }
+
+      p.x = Math.max(0, Math.min(window.innerWidth - 40, p.x));
+      p.y = Math.max(0, Math.min(window.innerHeight - 40, p.y));
+      p.el.style.left = p.x + 'px';
+      p.el.style.top = p.y + 'px';
+      p.label.style.left = (p.x + 20) + 'px';
+      p.label.style.top = (p.y - 10) + 'px';
+
+      checkCollision(p);
+      updateScoreboard();
+    }
+  };
+
+  function addPlayer(id, name) {
+    const div = document.createElement('div');
+    div.className = 'player';
+    div.style.background = colors[Object.keys(players).length % colors.length];
+    div.style.left = '100px'; div.style.top = '100px';
+
+    const label = document.createElement('div');
+    label.className = 'name';
+    label.textContent = name;
+
+    document.body.appendChild(div);
+    document.body.appendChild(label);
+
+    players[id] = { id, name, x: 100, y: 100, el: div, label, score: 0 };
+  }
+
+  function spawnPoint() {
+    const p = document.createElement('div');
+    p.className = 'point';
+    p.style.left = Math.random() * (window.innerWidth - 20) + 'px';
+    p.style.top = Math.random() * (window.innerHeight - 20) + 'px';
+    document.body.appendChild(p);
+    points.push(p);
+  }
+
+  function checkCollision(player) {
+    points.forEach((pt, i) => {
+      const rect1 = player.el.getBoundingClientRect();
+      const rect2 = pt.getBoundingClientRect();
+      const dx = rect1.left - rect2.left;
+      const dy = rect1.top - rect2.top;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 30) {
+        document.body.removeChild(pt);
+        points.splice(i, 1);
+        player.score += 1;
+        audio.score.play();
+      }
+    });
+  }
+
+  function updateScoreboard() {
+    const list = Object.values(players)
+      .sort((a, b) => b.score - a.score)
+      .map(p => `${p.name}: ${p.score}`)
+      .join('<br>');
+    scoreboard.innerHTML = `配對碼：<b>${code}</b><br>` + list;
+  }
+
+  setInterval(spawnPoint, 3000);
+</script>
+</body>
+</html>

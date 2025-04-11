@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>方向控制器</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      background: #000; color: white; font-family: sans-serif;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100vh; margin: 0;
+    }
+    .name-display {
+      font-size: 24px; margin-bottom: 20px;
+      transition: opacity 0.8s ease;
+
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .row { display: flex; width: 100%; justify-content: center; }
+    button {
+      flex: 1;
+      margin: 1vw;
+      padding: 10vw;
+      font-size: 6vw;
+      border-radius: 10px;
+      border: none;
+      background: #444;
+      color: white;
+
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+  </style>
+</head>
+<body>
+  <div class="name-display" id="nameDisplay">歡迎，</div>
+
+  <div class="row"><button ontouchstart="startHold('up')" ontouchend="stopHold()">↑</button></div>
+  <div class="row">
+    <button ontouchstart="startHold('left')" ontouchend="stopHold()">←</button>
+    <button ontouchstart="startHold('right')" ontouchend="stopHold()">→</button>
+  </div>
+  <div class="row"><button ontouchstart="startHold('down')" ontouchend="stopHold()">↓</button></div>
+
+  <script>
+    const url = new URLSearchParams(location.search);
+    const code = url.get('code') || localStorage.getItem('pairCode');
+    const id = url.get('id') || localStorage.getItem('playerId');
+    const name = decodeURIComponent(url.get('name') || localStorage.getItem('playerName') || '玩家');
+
+    const socket = new WebSocket('wss://' + location.host);
+    let interval = null;
+    let currentDir = null;
+
+    
+
+    // 顯示歡迎文字
+    const nameDisplay = document.getElementById('nameDisplay');
+    nameDisplay.textContent = `歡迎，${name}`;
+    setTimeout(() => {
+      nameDisplay.textContent = name;
+    }, 2000);
+
+    function startHold(dir) {
+      stopHold(); // 清掉舊的
+      currentDir = dir;
+      send(dir);
+      interval = setInterval(() => send(dir), 100);
+    }
+
+    function stopHold() {
+      clearInterval(interval);
+      interval = null;
+      currentDir = null;
+    }
+
+    function send(dir) {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          type: 'control',
+          code,
+          id,
+          name,
+          direction: dir
+        }));
+      }
+    }
+
+    socket.onopen = () => {
+      console.log(`[WS] 控制器連線成功：${name}`);
+    };
+  </script>
+</body>
+</html>
